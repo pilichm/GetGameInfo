@@ -76,6 +76,6 @@ def set_up_login_window():
 if __name__ == '__main__':
     print("App - start.")
 
-    set_up_login_window()
+    # set_up_login_window()
 
     print("App - end.")
