@@ -1,6 +1,9 @@
 import tkinter as tk
 from tkinter import ttk
+import requests
+import shutil
 
+from PIL import ImageTk, Image
 from IGDBApiWrapper import IGDBApiWrapper
 
 login_screen_labels = []
@@ -111,6 +114,36 @@ class RootWindow:
         progress_bar.grid(row=0, column=4, columnspan=3, sticky=tk.W, pady=4)
 
         self.root.mainloop()
+
+    # Displays downloaded game info for user.
+    def set_up_game_info_window(self):
+        self.root = tk.Tk()
+        self.root.title("ME")
+
+        # Download cover image.
+        self.download_image()
+
+        # Display image.
+        coverImage = Image.open("cover.png")
+        coverImage = coverImage.resize((200, 300), Image.ANTIALIAS)
+        tkImage = ImageTk.PhotoImage(coverImage)
+        label = tk.Label(self.root, image=tkImage)
+        label.grid(row=0, column=0, columnspan=2, sticky=tk.W, pady=4)
+
+        # Display text info.
+
+        # Display screenshots.
+
+        self.root.mainloop()
+
+    # Downloads images from submitted url.
+    def download_image(self):
+        image_url = "//images.igdb.com/igdb/image/upload/t_cover_big/pnzsv9ueb6tty6ob8q1t.jpg"
+        image_path = "cover.png"
+        response = requests.get(f"http:{image_url}", stream=True)
+
+        with open(image_path, 'wb') as file:
+            shutil.copyfileobj(response.raw, file)
 
     # Default method for starting app, displays windows in correct order.
     def run(self):
