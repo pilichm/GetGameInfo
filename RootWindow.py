@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 import requests
 import shutil
+import random
 
 from PIL import ImageTk, Image
 from IGDBApiWrapper import IGDBApiWrapper
@@ -13,6 +14,7 @@ login_screen_buttons = []
 label_names = ["IGDB client id", "IGDB client secret", ""]
 button_names = ["Cancel", "Log in"]
 
+pb = None
 
 # Method for evenly resizing labels in login screen.
 def resize_all_labels(labels):
@@ -89,7 +91,13 @@ class RootWindow:
     # Method searching for game by submitted name.
     def action_on_search(self, name):
         if self.api.can_download:
-            game = self.api.get_game_info_by_name(name)
+            if pb is not None:
+                pb.start()
+            self.game = self.api.get_game_info_by_name(name)
+            self.root.destroy()
+            self.set_up_game_info_window()
+            if pb is not None:
+                pb.stop()
         else:
             print("Cannot download info, api not set up correctly.")
 
@@ -107,43 +115,59 @@ class RootWindow:
         label = tk.Label(self.root, width=15, text="Enter game name", anchor='w')
         label.grid(row=0, column=1, sticky=tk.W, pady=4)
 
-        progress_bar = ttk.Progressbar(
+        pb = ttk.Progressbar(
             self.root,
             orient='horizontal',
             mode='indeterminate')
-        progress_bar.grid(row=0, column=4, columnspan=3, sticky=tk.W, pady=4)
+        pb.grid(row=0, column=4, columnspan=3, sticky=tk.W, pady=4)
 
         self.root.mainloop()
 
     # Displays downloaded game info for user.
     def set_up_game_info_window(self):
         self.root = tk.Tk()
-        self.root.title("ME")
+        self.root.title(self.game.name)
+
 
         # Download cover image.
-        self.download_image()
+        self.download_image("cover.png", self.game.cover_url)
 
-        # Display image.
+        # Display cover image.
         coverImage = Image.open("cover.png")
         coverImage = coverImage.resize((200, 300), Image.ANTIALIAS)
         tkImage = ImageTk.PhotoImage(coverImage)
-        label = tk.Label(self.root, image=tkImage)
+        label = tk.Label(image=tkImage, anchor='w')
         label.grid(row=0, column=0, columnspan=2, sticky=tk.W, pady=4)
 
         # Display text info.
 
+        # Download screenshots.
+        self.download_three_random_screenshots()
+
+        screenshot_labels = []
         # Display screenshots.
+        for index in range(3):
+            screenshotImage = Image.open(f"screenshot_{index}.png")
+            screenshotImage = screenshotImage.resize((200, 100), Image.ANTIALIAS)
+            sLabel = tk.Label(image=ImageTk.PhotoImage(screenshotImage))
+            screenshot_labels.append(sLabel)
+            screenshot_labels[index].grid(row=1, column=index)
 
         self.root.mainloop()
 
-    # Downloads images from submitted url.
-    def download_image(self):
-        image_url = "//images.igdb.com/igdb/image/upload/t_cover_big/pnzsv9ueb6tty6ob8q1t.jpg"
-        image_path = "cover.png"
-        response = requests.get(f"http:{image_url}", stream=True)
 
-        with open(image_path, 'wb') as file:
+    # Downloads images from submitted url.
+    def download_image(self, img_name, img_url):
+        print(f"http:{self.game.cover_url}")
+        response = requests.get(f"http:{img_url}", stream=True)
+
+        with open(img_name, 'wb') as file:
             shutil.copyfileobj(response.raw, file)
+
+    # Download max three screenshots of all available.
+    def download_three_random_screenshots(self):
+        for index, img_url in enumerate(random.sample(self.game.screenshots, 3)):
+            self.download_image(f"screenshot_{index}.png", img_url)
 
     # Default method for starting app, displays windows in correct order.
     def run(self):
