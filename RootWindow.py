@@ -5,6 +5,8 @@ import shutil
 import random
 
 from PIL import ImageTk, Image
+
+from Constants import genres_id_to_name_dict
 from IGDBApiWrapper import IGDBApiWrapper
 
 login_screen_labels = []
@@ -15,6 +17,7 @@ label_names = ["IGDB client id", "IGDB client secret", ""]
 button_names = ["Cancel", "Log in"]
 
 pb = None
+
 
 # Method for evenly resizing labels in login screen.
 def resize_all_labels(labels):
@@ -75,7 +78,8 @@ class RootWindow:
 
     def action_on_log_in(self):
         print("Verifying submitted credentials.")
-        self.api = IGDBApiWrapper(oa_client_id=login_screen_entries[0].get(), oa_client_secret=login_screen_entries[1].get())
+        self.api = IGDBApiWrapper(oa_client_id=login_screen_entries[0].get(),
+                                  oa_client_secret=login_screen_entries[1].get())
 
         if self.api.can_download:
             print("API created.")
@@ -130,10 +134,21 @@ class RootWindow:
 
         self.root.mainloop()
 
+    # Displays enlarged image after it was clicked.
+    def enlarge_image_on_click(self, image_name):
+        tempRoot = tk.Toplevel()
+        image = Image.open(image_name)
+        imageTk = ImageTk.PhotoImage(image)
+        label = tk.Label(tempRoot, image=imageTk, anchor='w')
+        label.grid(row=0, column=0, sticky=tk.W, pady=4, columnspan=1, rowspan=1)
+        tempRoot.attributes('-topmost', False)
+        tempRoot.mainloop()
+
     # Displays downloaded game info for user.
     def set_up_game_info_window(self):
         self.root = tk.Tk()
         self.root.title(self.game.name)
+        screenshot_size = (250, 150)
 
         # Download cover image.
         self.download_image("cover.png", self.game.cover_url)
@@ -143,21 +158,47 @@ class RootWindow:
         coverImage = coverImage.resize((200, 300), Image.ANTIALIAS)
         tkImage = ImageTk.PhotoImage(coverImage)
         label = tk.Label(image=tkImage, anchor='w')
-        label.grid(row=0, column=0, columnspan=2, sticky=tk.W, pady=4)
+        label.grid(row=0, column=0, sticky=tk.W, pady=4, columnspan=1, rowspan=3)
+        label.bind("<Button-1>", lambda e: self.enlarge_image_on_click("cover.png"))
 
         # Display text info.
+        gameNameLabel = tk.Label(self.root, width=50, text=self.game.name, anchor='n')
+        gameNameLabel.grid(row=0, column=1, sticky=tk.W, pady=4)
+
+        gameDescriptionLabel = tk.Label(self.root, width=50, wraplength=250, text=self.game.summary, anchor='n')
+        gameDescriptionLabel.grid(row=1, column=1, sticky=tk.W, pady=4)
+
+        genres = "Genres:"
+        for genre in self.game.genres:
+            genres = f"{genres}, {genre}"
+
+        gameGenresLabel = tk.Label(self.root, width=50, text=genres, anchor='n', wraplength=250,
+                                   font='Helvetica 8 bold')
+        gameGenresLabel.grid(row=2, column=1, sticky=tk.W, pady=4)
 
         # Download screenshots.
         self.download_three_random_screenshots()
 
-        screenshot_labels = []
-        # Display screenshots.
-        for index in range(3):
-            screenshotImage = Image.open(f"screenshot_{index}.png")
-            screenshotImage = screenshotImage.resize((200, 100), Image.ANTIALIAS)
-            sLabel = tk.Label(image=ImageTk.PhotoImage(screenshotImage), anchor='w')
-            screenshot_labels.append(sLabel)
-            screenshot_labels[index].grid(row=1, column=index)
+        screenshot_0 = Image.open("screenshot_0.png")
+        screenshot_0 = screenshot_0.resize(screenshot_size, Image.ANTIALIAS)
+        sc_0_image = ImageTk.PhotoImage(screenshot_0)
+        sc_0_label = tk.Label(image=sc_0_image, anchor='w')
+        sc_0_label.grid(row=3, column=0, sticky=tk.W, pady=4, columnspan=1, rowspan=1)
+        sc_0_label.bind("<Button-1>", lambda e: self.enlarge_image_on_click("screenshot_0.png"))
+
+        screenshot_1 = Image.open("screenshot_1.png")
+        screenshot_1 = screenshot_1.resize(screenshot_size, Image.ANTIALIAS)
+        sc_1_image = ImageTk.PhotoImage(screenshot_1)
+        sc_1_label = tk.Label(image=sc_1_image, anchor='c')
+        sc_1_label.grid(row=3, column=1, sticky=tk.S, pady=4, columnspan=1, rowspan=1)
+        sc_1_label.bind("<Button-1>", lambda e: self.enlarge_image_on_click("screenshot_1.png"))
+
+        screenshot_2 = Image.open("screenshot_2.png")
+        screenshot_2 = screenshot_2.resize(screenshot_size, Image.ANTIALIAS)
+        sc_2_image = ImageTk.PhotoImage(screenshot_2)
+        sc_2_label = tk.Label(image=sc_2_image, anchor='w')
+        sc_2_label.grid(row=3, column=2, sticky=tk.W, pady=4, columnspan=1, rowspan=1)
+        sc_2_label.bind("<Button-1>", lambda e: self.enlarge_image_on_click("screenshot_2.png"))
 
         self.root.mainloop()
 
@@ -186,14 +227,18 @@ class RootWindow:
         tkImage = ImageTk.PhotoImage(coverImage)
         label = tk.Label(image=tkImage, anchor='w')
         label.grid(row=0, column=0, sticky=tk.W, pady=4, columnspan=2, rowspan=3)
+        label.bind("<Button-1>", lambda e: self.enlarge_image_on_click("cover.png"))
 
         gameNameLabel = tk.Label(self.root, width=50, text="Mass Effect 2", anchor='n')
         gameNameLabel.grid(row=0, column=1, sticky=tk.W, pady=4)
 
-        gameDescriptionLabel = tk.Label(self.root, width=50, wraplength=250, text="Are you prepared to lose everything to save the galaxy? You'll need to be, Commander Shephard. It's time to bring together your greatest allies and recruit the galaxy's fighting elite to continue the resistance against the invading Reapers. So steel yourself, because this is an astronomical mission where sacrifices must be made. You'll face tougher choices and new, deadlier enemies. Arm yourself and prepare for an unforgettable intergalactic adventure.", anchor='n')
+        gameDescriptionLabel = tk.Label(self.root, width=50, wraplength=250,
+                                        text="Are you prepared to lose everything to save the galaxy? You'll need to be, Commander Shephard. It's time to bring together your greatest allies and recruit the galaxy's fighting elite to continue the resistance against the invading Reapers. So steel yourself, because this is an astronomical mission where sacrifices must be made. You'll face tougher choices and new, deadlier enemies. Arm yourself and prepare for an unforgettable intergalactic adventure.",
+                                        anchor='n')
         gameDescriptionLabel.grid(row=1, column=1, sticky=tk.W, pady=4)
 
-        gameGenresLabel = tk.Label(self.root, width=50, text="Genre: Adventure, Role-playing (RPG), Shooter, Simulator", anchor='n')
+        gameGenresLabel = tk.Label(self.root, width=50, wraplength=250,
+                                   text="Genre: Adventure, Role-playing (RPG), Shooter, Simulator", anchor='n')
         gameGenresLabel.grid(row=2, column=1, sticky=tk.W, pady=4)
 
         screenshot_0 = Image.open("screenshot_0.png")
@@ -201,18 +246,21 @@ class RootWindow:
         sc_0_image = ImageTk.PhotoImage(screenshot_0)
         sc_0_label = tk.Label(image=sc_0_image, anchor='w')
         sc_0_label.grid(row=3, column=0, sticky=tk.W, pady=4, columnspan=1, rowspan=1)
+        sc_0_label.bind("<Button-1>", lambda e: self.enlarge_image_on_click("screenshot_0.png"))
 
         screenshot_1 = Image.open("screenshot_1.png")
         screenshot_1 = screenshot_1.resize(screenshot_size, Image.ANTIALIAS)
         sc_1_image = ImageTk.PhotoImage(screenshot_1)
         sc_1_label = tk.Label(image=sc_1_image, anchor='c')
         sc_1_label.grid(row=3, column=1, sticky=tk.S, pady=4, columnspan=1, rowspan=1)
+        sc_1_label.bind("<Button-1>", lambda e: self.enlarge_image_on_click("screenshot_1.png"))
 
         screenshot_2 = Image.open("screenshot_2.png")
         screenshot_2 = screenshot_2.resize(screenshot_size, Image.ANTIALIAS)
         sc_2_image = ImageTk.PhotoImage(screenshot_2)
         sc_2_label = tk.Label(image=sc_2_image, anchor='w')
         sc_2_label.grid(row=3, column=2, sticky=tk.W, pady=4, columnspan=1, rowspan=1)
+        sc_2_label.bind("<Button-1>", lambda e: self.enlarge_image_on_click("screenshot_2.png"))
 
         self.root.mainloop()
 
