@@ -1,12 +1,12 @@
-import tkinter as tk
-from tkinter import ttk
-import requests
-import shutil
 import random
+import shutil
+import tkinter as tk
+from threading import Thread
+from tkinter import ttk
 
+import requests
 from PIL import ImageTk, Image
 
-from Constants import genres_id_to_name_dict
 from IGDBApiWrapper import IGDBApiWrapper
 
 login_screen_labels = []
@@ -15,8 +15,6 @@ login_screen_buttons = []
 
 label_names = ["IGDB client id", "IGDB client secret", ""]
 button_names = ["Cancel", "Log in"]
-
-pb = None
 
 
 # Method for evenly resizing labels in login screen.
@@ -42,6 +40,7 @@ class RootWindow:
         self.root = None
         self.game = None
         self.api = None
+        self.pb = None
 
     # Displays log in screen.
     def set_up_login_window(self):
@@ -58,7 +57,11 @@ class RootWindow:
 
         # Add text inputs.
         for index in range(2):
-            entry = tk.Entry(self.root)
+            if index == 1:
+                entry = tk.Entry(self.root, show="*")
+            else:
+                entry = tk.Entry(self.root)
+
             entry.grid(row=index, column=1)
             login_screen_entries.append(entry)
 
@@ -99,16 +102,27 @@ class RootWindow:
             new_labels_list.append("Missing oa_client_id or oa_client_secret!")
             resize_all_labels(new_labels_list)
 
+    def thread_task(self, name):
+        self.game = self.api.get_game_info_by_name(name)
+        if self.pb is not None:
+            self.pb.stop()
+        self.root.destroy()
+        self.set_up_game_info_window()
+
     # Method searching for game by submitted name.
     def action_on_search(self, name):
         if self.api.can_download:
-            if pb is not None:
-                pb.start()
-            self.game = self.api.get_game_info_by_name(name)
-            self.root.destroy()
-            self.set_up_game_info_window()
-            if pb is not None:
-                pb.stop()
+            if self.pb is not None:
+                self.pb.start()
+
+            print(f">>>>>>>>>> {name}")
+            thread = Thread(target=self.thread_task, args=[name])
+            thread.start()
+            # self.game = self.api.get_game_info_by_name(name)
+            # self.root.destroy()
+            # self.set_up_game_info_window()
+            # if self.pb is not None:
+            #     self.pb.stop()
         else:
             print("Cannot download info, api not set up correctly.")
 
@@ -120,17 +134,17 @@ class RootWindow:
         entry = tk.Entry(self.root)
         entry.grid(row=0, column=2)
 
+        self.pb = ttk.Progressbar(
+            self.root,
+            orient='horizontal',
+            mode='indeterminate')
+        self.pb.grid(row=0, column=4, columnspan=3, sticky=tk.W, pady=4)
+
         button = tk.Button(self.root, text="Search", command=lambda: self.action_on_search(entry.get()))
         button.grid(row=0, column=0, sticky=tk.W, pady=4)
 
         label = tk.Label(self.root, width=15, text="Enter game name", anchor='w')
         label.grid(row=0, column=1, sticky=tk.W, pady=4)
-
-        pb = ttk.Progressbar(
-            self.root,
-            orient='horizontal',
-            mode='indeterminate')
-        pb.grid(row=0, column=4, columnspan=3, sticky=tk.W, pady=4)
 
         self.root.mainloop()
 
@@ -178,27 +192,22 @@ class RootWindow:
 
         # Download screenshots.
         self.download_three_random_screenshots()
+        labels = []
+        images = []
 
-        screenshot_0 = Image.open("screenshot_0.png")
-        screenshot_0 = screenshot_0.resize(screenshot_size, Image.ANTIALIAS)
-        sc_0_image = ImageTk.PhotoImage(screenshot_0)
-        sc_0_label = tk.Label(image=sc_0_image, anchor='w')
-        sc_0_label.grid(row=3, column=0, sticky=tk.W, pady=4, columnspan=1, rowspan=1)
-        sc_0_label.bind("<Button-1>", lambda e: self.enlarge_image_on_click("screenshot_0.png"))
+        for index in range(3):
+            img = Image.open(f"screenshot_{index}.png")
+            img = img.resize(screenshot_size, Image.ANTIALIAS)
+            images.append(ImageTk.PhotoImage(img))
 
-        screenshot_1 = Image.open("screenshot_1.png")
-        screenshot_1 = screenshot_1.resize(screenshot_size, Image.ANTIALIAS)
-        sc_1_image = ImageTk.PhotoImage(screenshot_1)
-        sc_1_label = tk.Label(image=sc_1_image, anchor='c')
-        sc_1_label.grid(row=3, column=1, sticky=tk.S, pady=4, columnspan=1, rowspan=1)
-        sc_1_label.bind("<Button-1>", lambda e: self.enlarge_image_on_click("screenshot_1.png"))
+            if index == 1:
+                labels.append(tk.Label(image=images[index], anchor='w'))
+                labels[index].grid(row=3, column=index, sticky=tk.S, pady=4, columnspan=1, rowspan=1)
+            else:
+                labels.append(tk.Label(image=images[index], anchor='c'))
+                labels[index].grid(row=3, column=index, sticky=tk.W, pady=4, columnspan=1, rowspan=1)
 
-        screenshot_2 = Image.open("screenshot_2.png")
-        screenshot_2 = screenshot_2.resize(screenshot_size, Image.ANTIALIAS)
-        sc_2_image = ImageTk.PhotoImage(screenshot_2)
-        sc_2_label = tk.Label(image=sc_2_image, anchor='w')
-        sc_2_label.grid(row=3, column=2, sticky=tk.W, pady=4, columnspan=1, rowspan=1)
-        sc_2_label.bind("<Button-1>", lambda e: self.enlarge_image_on_click("screenshot_2.png"))
+            labels[index].bind("<Button-1>", lambda e: self.enlarge_image_on_click(f"screenshot_{index}.png"))
 
         self.root.mainloop()
 
@@ -241,26 +250,22 @@ class RootWindow:
                                    text="Genre: Adventure, Role-playing (RPG), Shooter, Simulator", anchor='n')
         gameGenresLabel.grid(row=2, column=1, sticky=tk.W, pady=4)
 
-        screenshot_0 = Image.open("screenshot_0.png")
-        screenshot_0 = screenshot_0.resize(screenshot_size, Image.ANTIALIAS)
-        sc_0_image = ImageTk.PhotoImage(screenshot_0)
-        sc_0_label = tk.Label(image=sc_0_image, anchor='w')
-        sc_0_label.grid(row=3, column=0, sticky=tk.W, pady=4, columnspan=1, rowspan=1)
-        sc_0_label.bind("<Button-1>", lambda e: self.enlarge_image_on_click("screenshot_0.png"))
+        labels = []
+        images = []
 
-        screenshot_1 = Image.open("screenshot_1.png")
-        screenshot_1 = screenshot_1.resize(screenshot_size, Image.ANTIALIAS)
-        sc_1_image = ImageTk.PhotoImage(screenshot_1)
-        sc_1_label = tk.Label(image=sc_1_image, anchor='c')
-        sc_1_label.grid(row=3, column=1, sticky=tk.S, pady=4, columnspan=1, rowspan=1)
-        sc_1_label.bind("<Button-1>", lambda e: self.enlarge_image_on_click("screenshot_1.png"))
+        for i in range(3):
+            img = Image.open(f"screenshot_{i}.png")
+            img = img.resize(screenshot_size, Image.ANTIALIAS)
+            images.append(ImageTk.PhotoImage(img))
 
-        screenshot_2 = Image.open("screenshot_2.png")
-        screenshot_2 = screenshot_2.resize(screenshot_size, Image.ANTIALIAS)
-        sc_2_image = ImageTk.PhotoImage(screenshot_2)
-        sc_2_label = tk.Label(image=sc_2_image, anchor='w')
-        sc_2_label.grid(row=3, column=2, sticky=tk.W, pady=4, columnspan=1, rowspan=1)
-        sc_2_label.bind("<Button-1>", lambda e: self.enlarge_image_on_click("screenshot_2.png"))
+            if i == 1:
+                labels.append(tk.Label(image=images[i], anchor='w'))
+                labels[i].grid(row=3, column=i, sticky=tk.S, pady=4, columnspan=1, rowspan=1)
+            else:
+                labels.append(tk.Label(image=images[i], anchor='c'))
+                labels[i].grid(row=3, column=i, sticky=tk.W, pady=4, columnspan=1, rowspan=1)
+
+            labels[i].bind("<Button-1>", lambda e: self.enlarge_image_on_click(f"screenshot_{i}.png"))
 
         self.root.mainloop()
 
