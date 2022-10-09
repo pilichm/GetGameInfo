@@ -1,7 +1,8 @@
 import random
 import shutil
+import threading
 import tkinter as tk
-from threading import Thread
+from multiprocessing import Queue
 from tkinter import ttk
 
 import requests
@@ -41,6 +42,7 @@ class RootWindow:
         self.game = None
         self.api = None
         self.pb = None
+        self.search_button = None
 
     # Displays log in screen.
     def set_up_login_window(self):
@@ -102,12 +104,28 @@ class RootWindow:
             new_labels_list.append("Missing oa_client_id or oa_client_secret!")
             resize_all_labels(new_labels_list)
 
-    def thread_task(self, name):
+    def clear(self):
+        elements = self.root.grid_slaves()
+        for el in elements:
+            el.destroy()
+
+    def task_get_game_info(self, name):
+        self.game = None
         self.game = self.api.get_game_info_by_name(name)
-        if self.pb is not None:
-            self.pb.stop()
-        self.root.destroy()
-        self.set_up_game_info_window()
+
+    def task_wait_for_game_info(self):
+        # Wait until game info is downloaded.
+        wait_for_data = True
+        while wait_for_data:
+            if self.game is not None:
+                wait_for_data = False
+                # self.root.destroy()
+                self.clear()
+                self.set_up_game_info_window()
+
+    def worker(self, queue, name):
+        game = self.api.get_game_info_by_name(name)
+        queue.put(game)
 
     # Method searching for game by submitted name.
     def action_on_search(self, name):
@@ -115,14 +133,22 @@ class RootWindow:
             if self.pb is not None:
                 self.pb.start()
 
-            print(f">>>>>>>>>> {name}")
-            thread = Thread(target=self.thread_task, args=[name])
+            if self.search_button is not None:
+                self.search_button["state"] = "disabled"
+
+            q = Queue()
+            thread = threading.Thread(target=self.worker, args=(q, name))
             thread.start()
-            # self.game = self.api.get_game_info_by_name(name)
-            # self.root.destroy()
-            # self.set_up_game_info_window()
-            # if self.pb is not None:
-            #     self.pb.stop()
+
+            self.game = q.get(True, 25)
+            self.root.destroy()
+            self.set_up_game_info_window()
+
+            # download_thread = Thread(target=self.task_get_game_info, args=[name])
+            # download_thread.start()
+            #
+            # wait_thread = Thread(target=self.task_wait_for_game_info)
+            # wait_thread.start()
         else:
             print("Cannot download info, api not set up correctly.")
 
@@ -140,8 +166,8 @@ class RootWindow:
             mode='indeterminate')
         self.pb.grid(row=0, column=4, columnspan=3, sticky=tk.W, pady=4)
 
-        button = tk.Button(self.root, text="Search", command=lambda: self.action_on_search(entry.get()))
-        button.grid(row=0, column=0, sticky=tk.W, pady=4)
+        self.search_button = tk.Button(self.root, text="Search", command=lambda: self.action_on_search(entry.get()))
+        self.search_button.grid(row=0, column=0, sticky=tk.W, pady=4)
 
         label = tk.Label(self.root, width=15, text="Enter game name", anchor='w')
         label.grid(row=0, column=1, sticky=tk.W, pady=4)
@@ -157,6 +183,15 @@ class RootWindow:
         label.grid(row=0, column=0, sticky=tk.W, pady=4, columnspan=1, rowspan=1)
         tempRoot.attributes('-topmost', False)
         tempRoot.mainloop()
+
+    def enlarge_screenshot_0(self):
+        self.enlarge_image_on_click("screenshot_0.png")
+
+    def enlarge_screenshot_1(self):
+        self.enlarge_image_on_click("screenshot_1.png")
+
+    def enlarge_screenshot_2(self):
+        self.enlarge_image_on_click("screenshot_2.png")
 
     # Displays downloaded game info for user.
     def set_up_game_info_window(self):
@@ -207,7 +242,12 @@ class RootWindow:
                 labels.append(tk.Label(image=images[index], anchor='c'))
                 labels[index].grid(row=3, column=index, sticky=tk.W, pady=4, columnspan=1, rowspan=1)
 
-            labels[index].bind("<Button-1>", lambda e: self.enlarge_image_on_click(f"screenshot_{index}.png"))
+            if index == 0:
+                labels[index].bind("<Button-1>", lambda e: self.enlarge_screenshot_0())
+            elif index == 1:
+                labels[index].bind("<Button-1>", lambda e: self.enlarge_screenshot_1())
+            elif index == 2:
+                labels[index].bind("<Button-1>", lambda e: self.enlarge_screenshot_2())
 
         self.root.mainloop()
 
@@ -253,19 +293,24 @@ class RootWindow:
         labels = []
         images = []
 
-        for i in range(3):
-            img = Image.open(f"screenshot_{i}.png")
+        for index in range(3):
+            img = Image.open(f"screenshot_{index}.png")
             img = img.resize(screenshot_size, Image.ANTIALIAS)
             images.append(ImageTk.PhotoImage(img))
 
-            if i == 1:
-                labels.append(tk.Label(image=images[i], anchor='w'))
-                labels[i].grid(row=3, column=i, sticky=tk.S, pady=4, columnspan=1, rowspan=1)
+            if index == 1:
+                labels.append(tk.Label(image=images[index], anchor='w'))
+                labels[index].grid(row=3, column=index, sticky=tk.S, pady=4, columnspan=1, rowspan=1)
             else:
-                labels.append(tk.Label(image=images[i], anchor='c'))
-                labels[i].grid(row=3, column=i, sticky=tk.W, pady=4, columnspan=1, rowspan=1)
+                labels.append(tk.Label(image=images[index], anchor='c'))
+                labels[index].grid(row=3, column=index, sticky=tk.W, pady=4, columnspan=1, rowspan=1)
 
-            labels[i].bind("<Button-1>", lambda e: self.enlarge_image_on_click(f"screenshot_{i}.png"))
+            if index == 0:
+                labels[index].bind("<Button-1>", lambda e: self.enlarge_screenshot_0())
+            elif index == 1:
+                labels[index].bind("<Button-1>", lambda e: self.enlarge_screenshot_1())
+            elif index == 2:
+                labels[index].bind("<Button-1>", lambda e: self.enlarge_screenshot_2())
 
         self.root.mainloop()
 
